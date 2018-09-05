@@ -3,20 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Http\Helpers\InfusionsoftHelper;
+use App\Http\Requests\ModuleAssignerRequest;
 use Illuminate\Http\Request;
 use Response;
+use App\User;
+use App\Module;
 
 class ApiController extends Controller
 {
+    public $request, $infusionSoftHelper;
     // Todo: Module reminder assigner
 
-    private function exampleCustomer(){
+    public function __construct(InfusionsoftHelper $infusionSoftHelper) {
+        $this->infusionSoftHelper = $infusionSoftHelper;
+    }
 
-        $infusionsoft = new InfusionsoftHelper();
+    /**
+     * @return mixed
+     */
+    public function exampleCustomer(){
 
         $uniqid = uniqid();
 
-        $infusionsoft->createContact([
+        $this->infusionSoftHelper->createContact([
             'Email' => $uniqid.'@test.com',
             "_Products" => 'ipa,iea'
         ]);
@@ -33,5 +42,11 @@ class ApiController extends Controller
 
 
         return $user;
+    }
+
+    public function reminderAssigner(ModuleAssignerRequest $request)
+    {
+        $contactEmail = $request->contact_email;
+        $nativeUser = User::where('email', $contactEmail)->first();
     }
 }

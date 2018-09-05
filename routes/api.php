@@ -13,3 +13,6 @@ use Illuminate\Http\Request;
 |
 */
 
+Route::post('module_reminder_assigner', 'ApiController@reminderAssigner');
+
+Route::get('create_test_contact', 'ApiController@exampleCustomer');
