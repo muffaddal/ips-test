@@ -7,32 +7,40 @@ use App\Http\Requests\ModuleAssignerRequest;
 use Illuminate\Http\Request;
 use Response;
 use App\User;
-use App\Module;
+use App\Http\Helpers\CalculateTagsReminderTrait;
 
 class ApiController extends Controller
 {
+
+    use CalculateTagsReminderTrait;
+
     public $request, $infusionSoftHelper;
+
+    protected $coursesCompletedByUser = null;
+
     // Todo: Module reminder assigner
 
-    public function __construct(InfusionsoftHelper $infusionSoftHelper) {
+    public function __construct(InfusionsoftHelper $infusionSoftHelper)
+    {
         $this->infusionSoftHelper = $infusionSoftHelper;
     }
 
     /**
      * @return mixed
      */
-    public function exampleCustomer(){
+    public function exampleCustomer()
+    {
 
         $uniqid = uniqid();
 
         $this->infusionSoftHelper->createContact([
-            'Email' => $uniqid.'@test.com',
+            'Email'     => $uniqid . '@test.com',
             "_Products" => 'ipa,iea'
         ]);
 
         $user = User::create([
-            'name' => 'Test ' . $uniqid,
-            'email' => $uniqid.'@test.com',
+            'name'     => 'Test ' . $uniqid,
+            'email'    => $uniqid . '@test.com',
             'password' => bcrypt($uniqid)
         ]);
 
@@ -44,9 +52,27 @@ class ApiController extends Controller
         return $user;
     }
 
+    /**
+     * @param ModuleAssignerRequest $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function reminderAssigner(ModuleAssignerRequest $request)
     {
-        $contactEmail = $request->contact_email;
-        $nativeUser = User::where('email', $contactEmail)->first();
+        $tagsToAdd = $this->getReminderTagsByUser($request);
+        if(empty($tagsToAdd)) {
+            $response = [
+                'status_code' => 200,
+                'status'      => 'success',
+                'message'     => 'The Customer has not chosen any courses to send reminders!',
+            ];
+
+            return Response::json($response);
+        }
+//        foreach($tagsToAdd as $key => $tag) {
+//
+//            }
+//
+//            $infusionSoftContactId = $request->extraParams['infusion_customer_id'];
+//            return Response::json($infusionsoft->addTag($infusionSoftContactId, $tag_id));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Http\Helpers\InfusionsoftHelper;
 use Illuminate\Foundation\Http\FormRequest;
+use Response;
 
 class ModuleAssignerRequest extends FormRequest
 {
@@ -53,8 +54,13 @@ class ModuleAssignerRequest extends FormRequest
             $request = $this->all();
             $contactEmail = $request[ 'contact_email' ];
             $infusionContact = $this->infusionSoftHelper->getContact($contactEmail);
-            if ($infusionContact == false) {
-                $validator->errors()->add('access', "The email is not a valid Infusion Soft Email");
+            if (!$infusionContact) {
+                $data = [
+                    'status_code' => 403,
+                    'status'      => 'failed',
+                    'message'     => 'The email is not a valid Infusion Soft Email',
+                ];
+                return Response::json($data);
             } else {
                 $this->extraParams[ 'products' ] = $infusionContact[ '_Products' ];
                 $this->extraParams[ 'infusion_customer_id' ] = $infusionContact[ 'Id' ];
