@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Helpers\InfusionsoftHelper;
 use App\Http\Requests\ModuleAssignerRequest;
+use App\Tags;
 use Illuminate\Http\Request;
 use Response;
 use App\User;
@@ -59,7 +60,20 @@ class ApiController extends Controller
     public function reminderAssigner(ModuleAssignerRequest $request)
     {
         $tagsToAdd = $this->getReminderTagsByUser($request);
-        if(empty($tagsToAdd)) {
+        $infusionSoftContactId = $request->extraParams[ 'infusion_customer_id' ];
+        $contactEmail = $request->contact_email;
+        return $this->AddTagsToInfusionSoftForUser($contactEmail, $infusionSoftContactId, $tagsToAdd);
+    }
+
+    /**
+     * @param $contactEmail
+     * @param $infusionSoftContactId
+     * @param $tagsToAdd
+     * @return \Illuminate\Http\JsonResponse
+     */
+    protected function AddTagsToInfusionSoftForUser($contactEmail, $infusionSoftContactId, $tagsToAdd)
+    {
+        if (empty($tagsToAdd)) {
             $response = [
                 'status_code' => 200,
                 'status'      => 'success',
@@ -68,11 +82,31 @@ class ApiController extends Controller
 
             return Response::json($response);
         }
-//        foreach($tagsToAdd as $key => $tag) {
-//
-//            }
-//
-//            $infusionSoftContactId = $request->extraParams['infusion_customer_id'];
-//            return Response::json($infusionsoft->addTag($infusionSoftContactId, $tag_id));
+        $response = [];
+        foreach ($tagsToAdd as $key => $tagId) {
+            $user = User::where('email', $contactEmail)->first();
+            $tagInfo = Tags::find($tagId);
+            $addTag = $this->infusionSoftHelper->addTag($infusionSoftContactId, $tagId);
+            $response[ $key ] = [
+                'status_code' => 200,
+                'data'        => [
+                    'tag_id'                => $tagId,
+                    'tag_name'              => $tagInfo->name,
+                    'user_id'               => $user->id,
+                    'user_name'             => $user->name,
+                    'user_email'            => $user->email,
+                    'infusion_soft_user_id' => $infusionSoftContactId,
+                ]
+            ];
+            if ($addTag) {
+                $response[ $key ][ 'status' ] = 'success';
+                $response[ $key ][ 'message' ] = 'The reminder set successfully for ' . $tagInfo->name;
+            } else {
+                $response[ $key ][ 'status' ] = 'failed';
+                $response[ $key ][ 'message' ] = 'Failed to set reminder ' . $tagInfo->name;
+            }
+        }
+
+        return Response::json($response);
     }
 }

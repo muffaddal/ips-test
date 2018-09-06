@@ -36,11 +36,11 @@ trait CalculateTagsReminderTrait
 
             if (empty($modulesCompletedByUser)) {
                 $moduleStarter = DB::table('modules')
-                                   ->select('modules.id as mid', 'tags.name')
+                                   ->select('modules.id as mid', 'tags.name', 'tags.id as tagId')
                                    ->join('tags', 'tags.module_id', '=', 'modules.id')
                                    ->where('course_key', $courseKey)
                                    ->take(1)->get()->all();
-                $tagsToAttach[] = $moduleStarter[ 0 ]->name;
+                $tagsToAttach[] = $moduleStarter[ 0 ]->tagId;
             } else {
                 $this->coursesCompletedByUser[ $courseKey ] = $modulesCompletedByUser;
             }
@@ -51,7 +51,6 @@ trait CalculateTagsReminderTrait
 
     public function getNextModuleName($currentModuleName, $currentCourse, $coursesTakenByUser)
     {
-        $newModuleName = '';
         if ( !empty($currentModuleName) || !is_null($currentModuleName) && is_string($currentModuleName)) {
             $lastModuleNo = $this->getModuleNumberFromName($currentModuleName);
             if ($lastModuleNo < 7) {
@@ -142,13 +141,13 @@ trait CalculateTagsReminderTrait
                 $newCourseKey = array_keys($nextModuleData)[ 0 ];
                 if ( !is_null($nextModuleData[ $newCourseKey ])) {
                     $moduleToStart = DB::table('modules')
-                                       ->select('modules.id as mid', 'tags.name')
+                                       ->select('modules.id as mid', 'tags.name', 'tags.id as tagId')
                                        ->join('tags', 'tags.module_id', '=', 'modules.id')
                                        ->where('course_key', $newCourseKey)
                                        ->where('modules.name', '=', $nextModuleData[ $newCourseKey ])
                                        ->get()->all();
                     if(!empty($moduleToStart)) {
-                        $tagsToAttach[ $newCourseKey ] = $moduleToStart[ 0 ]->name;
+                        $tagsToAttach[] = $moduleToStart[ 0 ]->tagId;
                     }
 
                 }

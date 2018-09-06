@@ -5,6 +5,10 @@ namespace App\Http\Requests;
 use App\Http\Helpers\InfusionsoftHelper;
 use Illuminate\Foundation\Http\FormRequest;
 use Response;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 
 class ModuleAssignerRequest extends FormRequest
 {
@@ -48,23 +52,42 @@ class ModuleAssignerRequest extends FormRequest
         ];
     }
 
-    public function withValidator($validator)
+    protected function prepareForValidation()
     {
-        $validator->after(function ($validator) {
-            $request = $this->all();
+        $request = $this->all();
+        if(isset($request[ 'contact_email' ]) && !empty($request[ 'contact_email' ])) {
             $contactEmail = $request[ 'contact_email' ];
             $infusionContact = $this->infusionSoftHelper->getContact($contactEmail);
-            if (!$infusionContact) {
+            if ($infusionContact === false) {
                 $data = [
-                    'status_code' => 403,
+                    'status_code' => 422,
                     'status'      => 'failed',
-                    'message'     => 'The email is not a valid Infusion Soft Email',
+                    'message'     => 'The email is not a valid Infusion Soft Customer Email',
                 ];
-                return Response::json($data);
+                throw new HttpResponseException(response()->json([
+                    'errors' => $data
+                ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
             } else {
                 $this->extraParams[ 'products' ] = $infusionContact[ '_Products' ];
                 $this->extraParams[ 'infusion_customer_id' ] = $infusionContact[ 'Id' ];
             }
-        });
+        } else {
+            $data = [
+                'status_code' => 422,
+                'status'      => 'failed',
+                'message'     => 'Invalid Params',
+            ];
+            throw new HttpResponseException(response()->json([
+                'errors' => $data
+            ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
+        }
+    }
+
+    protected function failedValidation(Validator $validator)
+    {
+        $errors = (new ValidationException($validator))->errors();
+        throw new HttpResponseException(response()->json([
+            'errors' => $errors
+        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
     }
 }
