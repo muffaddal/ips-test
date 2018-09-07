@@ -57,6 +57,5 @@ class ModuleAssignerRequestTest extends TestCase
         $response = $this->json('POST', '/api/module_reminder_assigner', ['contact_email' => '5b911648a2f2c@test.com']);
 
         $response->assertStatus(200);
-
     }
 }

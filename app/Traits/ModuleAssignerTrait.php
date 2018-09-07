@@ -12,7 +12,7 @@ use UserModules;
 trait ModuleAssignerTrait
 {
 
-    protected $coursesCompletedByUser = null;
+    protected $coursesCompletedByUser = [];
 
     /***
      * @param $request
@@ -34,9 +34,8 @@ trait ModuleAssignerTrait
                 $this->coursesCompletedByUser[ $courseKey ] = $modulesCompletedByUser;
             }
         }
-        $tagsToAttach = $this->getReminderTagsForUser($coursesTakenByUser, $tagsToAttach);
 
-        return array_unique($tagsToAttach);
+        return $this->getTags($coursesTakenByUser, $tagsToAttach);
     }
 
     /***
@@ -82,7 +81,7 @@ trait ModuleAssignerTrait
                     ];
                 } else {
                     foreach ($coursesTakenByUser as $courseKey) {
-                        $currentModuleName = $this->coursesCompletedByUser[ $courseKey ][ 0 ]->name;
+                        $currentModuleName = isset($this->coursesCompletedByUser[ $courseKey ]) ? $this->coursesCompletedByUser[ $courseKey ][ 0 ]->name : null;
                         $lastModuleNo = $this->getModuleNumberFromName($currentModuleName);
                         if ($lastModuleNo < 7) {
                             $newModuleName = $this->setNewModuleName($lastModuleNo, $currentModuleName);
@@ -90,10 +89,11 @@ trait ModuleAssignerTrait
                             $courseKey = 'completed';
                             $newModuleName = 'Module reminders completed';
                         }
+
                         $coursesToSendReminders[ $courseKey ] = $newModuleName;
+                        $coursesToSendReminders[ $courseKey ] = $currentModuleName;
 
                         return $coursesToSendReminders;
-
                     }
                 }
             }
@@ -107,10 +107,14 @@ trait ModuleAssignerTrait
      */
     protected function getModuleNumberFromName($currentModuleName): int
     {
-        $moduleName = explode(' ', $currentModuleName);
-        $lastModuleNo = (int)end($moduleName);
+        if ( !is_null($currentModuleName) && is_string($currentModuleName)) {
+            $moduleName = explode(' ', $currentModuleName);
+            $lastModuleNo = (int)end($moduleName);
 
-        return $lastModuleNo;
+            return $lastModuleNo;
+        }
+
+        return 8;
     }
 
     /***
@@ -131,23 +135,23 @@ trait ModuleAssignerTrait
      * @param $tagsToAttach
      * @return array
      */
-    protected function getReminderTagsForUser($coursesTakenByUser, $tagsToAttach): array
+    protected function getTags($coursesTakenByUser, $tagsToAttach): array
     {
         if ( !empty($this->coursesCompletedByUser)) {
             foreach ($this->coursesCompletedByUser as $courseKey => $value) {
                 $nextModuleData = $this->getModuleToRemind($value[ 0 ]->name, $courseKey, $coursesTakenByUser);
                 $newCourseKey = array_keys($nextModuleData)[ 0 ];
                 if ( !is_null($nextModuleData[ $newCourseKey ])) {
-                    $moduleToStart = UserModules::getModulesByCourseAndModuleName($newCourseKey,
-                        $nextModuleData[ $newCourseKey ]);
+                    $moduleToStart = UserModules::getModulesByCourseAndModuleName($newCourseKey, $nextModuleData[ $newCourseKey ]);
                     if ( !empty($moduleToStart)) {
                         $tagsToAttach[] = $moduleToStart[ 0 ]->tagId;
                     }
-
                 }
             }
         }
-
-        return $tagsToAttach;
+        $tags = array_unique($tagsToAttach);
+        return [
+            'tagsToAttach' => array_first($tags),
+        ];
     }
 }

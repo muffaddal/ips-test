@@ -8,6 +8,7 @@ use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
+use App\User;
 
 class ModuleAssignerRequest extends FormRequest
 {
@@ -54,8 +55,19 @@ class ModuleAssignerRequest extends FormRequest
     protected function prepareForValidation()
     {
         $request = $this->all();
-        if(isset($request[ 'contact_email' ]) && !empty($request[ 'contact_email' ])) {
+        if (isset($request[ 'contact_email' ]) && !empty($request[ 'contact_email' ])) {
             $contactEmail = $request[ 'contact_email' ];
+            $isValidUser = User::where('email', $contactEmail)->first();
+            if (is_null($isValidUser)) {
+                $data = [
+                    'status_code' => 422,
+                    'status'      => 'failed',
+                    'message'     => 'The user is not registered on our system',
+                ];
+                throw new HttpResponseException(response()->json([
+                    'errors' => $data
+                ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
+            }
             $infusionContact = $this->infusionSoftHelper->getContact($contactEmail);
             if ($infusionContact === false) {
                 $data = [
