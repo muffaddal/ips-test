@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use App\Http\Helpers\InfusionsoftHelper;
 use Illuminate\Foundation\Http\FormRequest;
-use Response;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -60,26 +59,26 @@ class ModuleAssignerRequest extends FormRequest
             $infusionContact = $this->infusionSoftHelper->getContact($contactEmail);
             if ($infusionContact === false) {
                 $data = [
-                    'status_code' => 422,
+                    'status_code' => 400,
                     'status'      => 'failed',
                     'message'     => 'The email is not a valid Infusion Soft Customer Email',
                 ];
                 throw new HttpResponseException(response()->json([
                     'errors' => $data
-                ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
+                ], JsonResponse::HTTP_BAD_REQUEST));
             } else {
                 $this->extraParams[ 'products' ] = $infusionContact[ '_Products' ];
                 $this->extraParams[ 'infusion_customer_id' ] = $infusionContact[ 'Id' ];
             }
         } else {
             $data = [
-                'status_code' => 422,
+                'status_code' => 400,
                 'status'      => 'failed',
                 'message'     => 'Invalid Params',
             ];
             throw new HttpResponseException(response()->json([
                 'errors' => $data
-            ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
+            ], JsonResponse::HTTP_BAD_REQUEST));
         }
     }
 
@@ -88,6 +87,6 @@ class ModuleAssignerRequest extends FormRequest
         $errors = (new ValidationException($validator))->errors();
         throw new HttpResponseException(response()->json([
             'errors' => $errors
-        ], JsonResponse::HTTP_UNPROCESSABLE_ENTITY));
+        ], JsonResponse::HTTP_BAD_REQUEST));
     }
 }

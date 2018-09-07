@@ -5,21 +5,19 @@ namespace App\Http\Controllers;
 use App\Http\Helpers\InfusionsoftHelper;
 use App\Http\Requests\ModuleAssignerRequest;
 use App\Tags;
-use Illuminate\Http\Request;
-use Response;
 use App\User;
-use App\Http\Helpers\CalculateTagsReminderTrait;
+use App\Traits\ModuleAssignerTrait;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 
 class ApiController extends Controller
 {
 
-    use CalculateTagsReminderTrait;
+    use ModuleAssignerTrait;
 
     public $request, $infusionSoftHelper;
 
     protected $coursesCompletedByUser = null;
-
-    // Todo: Module reminder assigner
 
     public function __construct(InfusionsoftHelper $infusionSoftHelper)
     {
@@ -61,52 +59,40 @@ class ApiController extends Controller
     {
         $tagsToAdd = $this->getReminderTagsByUser($request);
         $infusionSoftContactId = $request->extraParams[ 'infusion_customer_id' ];
-        $contactEmail = $request->contact_email;
-        return $this->AddTagsToInfusionSoftForUser($contactEmail, $infusionSoftContactId, $tagsToAdd);
+
+        return $this->AddTagsReminderToInfusionSoftForUser($infusionSoftContactId, $tagsToAdd);
     }
 
-    /**
-     * @param $contactEmail
+    /***
      * @param $infusionSoftContactId
      * @param $tagsToAdd
-     * @return \Illuminate\Http\JsonResponse
      */
-    protected function AddTagsToInfusionSoftForUser($contactEmail, $infusionSoftContactId, $tagsToAdd)
+    protected function AddTagsReminderToInfusionSoftForUser($infusionSoftContactId, $tagsToAdd)
     {
         if (empty($tagsToAdd)) {
             $response = [
-                'status_code' => 200,
-                'status'      => 'success',
-                'message'     => 'The Customer has not chosen any courses to send reminders!',
+                'message' => 'The Customer has not chosen any courses to send reminders!',
             ];
 
-            return Response::json($response);
+            throw new HttpResponseException(response()->json([
+                'errors' => $response
+            ], JsonResponse::HTTP_OK));
         }
         $response = [];
         foreach ($tagsToAdd as $key => $tagId) {
-            $user = User::where('email', $contactEmail)->first();
-            $tagInfo = Tags::find($tagId);
             $addTag = $this->infusionSoftHelper->addTag($infusionSoftContactId, $tagId);
-            $response[ $key ] = [
-                'status_code' => 200,
-                'data'        => [
-                    'tag_id'                => $tagId,
-                    'tag_name'              => $tagInfo->name,
-                    'user_id'               => $user->id,
-                    'user_name'             => $user->name,
-                    'user_email'            => $user->email,
-                    'infusion_soft_user_id' => $infusionSoftContactId,
-                ]
-            ];
+            $tagInfo = Tags::find($tagId);
             if ($addTag) {
                 $response[ $key ][ 'status' ] = 'success';
-                $response[ $key ][ 'message' ] = 'The reminder set successfully for ' . $tagInfo->name;
             } else {
                 $response[ $key ][ 'status' ] = 'failed';
-                $response[ $key ][ 'message' ] = 'Failed to set reminder ' . $tagInfo->name;
             }
+
+            $response[ $key ][ 'message' ] = 'Reminder Tag Name : ' . $tagInfo->name;
         }
 
-        return Response::json($response);
+        throw new HttpResponseException(response()->json([
+            'data' => $response
+        ], JsonResponse::HTTP_OK));
     }
 }

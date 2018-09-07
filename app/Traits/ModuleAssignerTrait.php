@@ -1,7 +1,7 @@
-<?php namespace App\Http\Helpers;
+<?php namespace App\Traits;
 
 use App\User;
-use Illuminate\Support\Facades\DB;
+use UserModules;
 
 /**
  * Created by PhpStorm.
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
  * Date: 5/9/18
  * Time: 6:06 PM
  */
-trait CalculateTagsReminderTrait
+trait ModuleAssignerTrait
 {
 
     protected $coursesCompletedByUser = null;
@@ -20,36 +20,33 @@ trait CalculateTagsReminderTrait
      */
     public function getReminderTagsByUser($request): array
     {
+        $tagsToAttach = [];
         $contactEmail = $request->contact_email;
         $nativeUser = User::where('email', $contactEmail)->first();
-        $tagsToAttach = [];
         $coursesTakenByUser = explode(',', $request->extraParams[ 'products' ]);
         foreach ($coursesTakenByUser as $courseKey) {
-            $modulesCompletedByUser = DB::table('user_completed_modules')
-                                        ->select('user_completed_modules.user_id', 'modules.course_key',
-                                            'modules.id as mid', 'modules.name')
-                                        ->join('modules', 'user_completed_modules.module_id', '=', 'modules.id')
-                                        ->where('modules.course_key', $courseKey)
-                                        ->where('user_completed_modules.user_id', '=', $nativeUser->id)
-                                        ->orderBy('modules.id', 'desc')
-                                        ->get()->all();
+            $modulesCompletedByUser = UserModules::getModulesCompletedByUserByCourses($courseKey, $nativeUser->id);
 
             if (empty($modulesCompletedByUser)) {
-                $moduleStarter = DB::table('modules')
-                                   ->select('modules.id as mid', 'tags.name', 'tags.id as tagId')
-                                   ->join('tags', 'tags.module_id', '=', 'modules.id')
-                                   ->where('course_key', $courseKey)
-                                   ->take(1)->get()->all();
+                $moduleStarter = UserModules::getStarterModulesForUserByCourse($courseKey);
                 $tagsToAttach[] = $moduleStarter[ 0 ]->tagId;
             } else {
                 $this->coursesCompletedByUser[ $courseKey ] = $modulesCompletedByUser;
             }
         }
-        $tagsToAttach = $this->calculateTagsPerCourse($coursesTakenByUser, $tagsToAttach);
+        $tagsToAttach = $this->getReminderTagsForUser($coursesTakenByUser, $tagsToAttach);
+
         return array_unique($tagsToAttach);
     }
 
-    public function getNextModuleName($currentModuleName, $currentCourse, $coursesTakenByUser)
+    /***
+     * @param $currentModuleName
+     * @param $currentCourse
+     * @param $coursesTakenByUser
+     * @return array
+     * @author Mufaddal.N
+     */
+    public function getModuleToRemind($currentModuleName, $currentCourse, $coursesTakenByUser)
     {
         if ( !empty($currentModuleName) || !is_null($currentModuleName) && is_string($currentModuleName)) {
             $lastModuleNo = $this->getModuleNumberFromName($currentModuleName);
@@ -67,7 +64,7 @@ trait CalculateTagsReminderTrait
                 unset($coursesTakenByUser[ $keyToRemove ]);
                 if (count($coursesTakenByUser) == 1) {
                     $courseInProgress = array_values($coursesTakenByUser)[ 0 ];
-                    if(isset($this->coursesCompletedByUser[ $courseInProgress ])) {
+                    if (isset($this->coursesCompletedByUser[ $courseInProgress ])) {
                         $currentModuleName = $this->coursesCompletedByUser[ $courseInProgress ][ 0 ]->name;
                     }
                     $lastModuleNo = $this->getModuleNumberFromName($currentModuleName);
@@ -106,6 +103,7 @@ trait CalculateTagsReminderTrait
     /**
      * @param $currentModuleName
      * @return int
+     * @author Mufaddal.N
      */
     protected function getModuleNumberFromName($currentModuleName): int
     {
@@ -133,20 +131,16 @@ trait CalculateTagsReminderTrait
      * @param $tagsToAttach
      * @return array
      */
-    protected function calculateTagsPerCourse($coursesTakenByUser, $tagsToAttach): array
+    protected function getReminderTagsForUser($coursesTakenByUser, $tagsToAttach): array
     {
         if ( !empty($this->coursesCompletedByUser)) {
             foreach ($this->coursesCompletedByUser as $courseKey => $value) {
-                $nextModuleData = $this->getNextModuleName($value[ 0 ]->name, $courseKey, $coursesTakenByUser);
+                $nextModuleData = $this->getModuleToRemind($value[ 0 ]->name, $courseKey, $coursesTakenByUser);
                 $newCourseKey = array_keys($nextModuleData)[ 0 ];
                 if ( !is_null($nextModuleData[ $newCourseKey ])) {
-                    $moduleToStart = DB::table('modules')
-                                       ->select('modules.id as mid', 'tags.name', 'tags.id as tagId')
-                                       ->join('tags', 'tags.module_id', '=', 'modules.id')
-                                       ->where('course_key', $newCourseKey)
-                                       ->where('modules.name', '=', $nextModuleData[ $newCourseKey ])
-                                       ->get()->all();
-                    if(!empty($moduleToStart)) {
+                    $moduleToStart = UserModules::getModulesByCourseAndModuleName($newCourseKey,
+                        $nextModuleData[ $newCourseKey ]);
+                    if ( !empty($moduleToStart)) {
                         $tagsToAttach[] = $moduleToStart[ 0 ]->tagId;
                     }
 
